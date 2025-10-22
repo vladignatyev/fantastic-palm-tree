@@ -150,3 +150,31 @@ uv run python examples/sma_crossover.py data/btcusdt-1h.tsv --fast 15 --slow 60 
 Behind the scenes the script calls `cryptobot.backtest.optimize_strategy` with an objective that returns the negative Sharpe
 ratio, so the optimizer searches for the highest Sharpe value supported by the dataset and strategy bounds.
 
+### Example Optimization Session
+
+Once you have a TSV dataset (for example, downloaded with `fetch-ohlcv` into `data/btcusdt-1h.tsv`), you can run a full
+optimization session and inspect the results in the terminal. A typical invocation and its output look like:
+
+```bash
+uv run python examples/sma_crossover.py data/btcusdt-1h.tsv --fast 20 --slow 80 --size 1.5 --atr-mult 3 --optimize
+
+# Output
+Optimizing parameters for Sharpe ratio using SciPy...
+Optimized parameters:
+  fast_window: 17.2841
+  slow_window: 92.5158
+  position_size: 1.8325
+  atr_multiplier: 2.4127
+Backtest metrics:
+  sharpe: 1.84
+  sortino: 2.47
+  pnl: 0.102
+  max_drawdown: -0.034
+  max_profit: 0.137
+```
+
+Your output will vary depending on the dataset, but the structure remains the same: the script announces the optimization run,
+prints the tuned parameters returned by `optimize_strategy`, and finishes with the full backtest metrics computed from the
+best Sharpe ratio found. If you omit `--no-plot`, the optimized run is plotted automatically so you can visually inspect the
+equity curve and trade markers produced by the tuned configuration.
+
