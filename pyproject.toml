@@ -1,0 +1,30 @@
+[project]
+name = "crypto-backtester"
+version = "0.1.0"
+description = "Tools for loading, analyzing, and backtesting crypto strategies"
+authors = [{name = "Auto Dev", email = "auto@example.com"}]
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "matplotlib>=3.8.0",
+    "mplfinance>=0.12.10b0",
+    "requests>=2.31.0",
+    "scipy>=1.11.0"
+]
+readme = "README.md"
+license = {text = "MIT"}
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.8.0", "mplfinance>=0.12.10b0"]
+
+[project.scripts]
+fetch-ohlcv = "cryptobot.cli.fetch:main"
+visualize-ohlcv = "cryptobot.cli.visualize:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+default-groups = ["plot"]
