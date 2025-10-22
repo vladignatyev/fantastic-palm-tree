@@ -33,10 +33,20 @@ class StrategyContext:
 class Broker:
     """Simple broker interface for strategy execution."""
 
-    def __init__(self) -> None:
+    def __init__(self, maker_fee: float = 0.0, taker_fee: float = 0.0) -> None:
         self._open_positions: dict[int, Trade] = {}
         self._closed: list[ClosedTrade] = []
         self._next_id = 1
+        self._maker_fee = float(maker_fee)
+        self._taker_fee = float(taker_fee)
+
+    def _fee_rate(self, fee_type: str) -> float:
+        fee = fee_type.lower()
+        if fee == "maker":
+            return self._maker_fee
+        if fee == "taker":
+            return self._taker_fee
+        raise ValueError(f"Unsupported fee type: {fee_type}")
 
     @property
     def open_positions(self) -> list["Trade"]:
@@ -54,7 +64,10 @@ class Broker:
         timestamp: pd.Timestamp,
         take_profit: float | None = None,
         stop_loss: float | None = None,
+        fee_type: str = "taker",
     ) -> "Trade":
+        fee_rate = self._fee_rate(fee_type)
+        entry_fee = price * size * fee_rate
         trade = Trade(
             trade_id=self._next_id,
             direction=direction,
@@ -63,6 +76,8 @@ class Broker:
             entry_time=timestamp,
             take_profit=take_profit,
             stop_loss=stop_loss,
+            entry_fee=entry_fee,
+            entry_fee_type=fee_type.lower(),
         )
         self._open_positions[self._next_id] = trade
         self._next_id += 1
@@ -74,8 +89,11 @@ class Broker:
         price: float,
         timestamp: pd.Timestamp,
         reason: str = "manual",
+        fee_type: str = "taker",
     ) -> "ClosedTrade":
         trade = self._open_positions.pop(trade_id)
+        fee_rate = self._fee_rate(fee_type)
+        exit_fee = price * trade.size * fee_rate
         closed = ClosedTrade(
             trade_id=trade.trade_id,
             direction=trade.direction,
@@ -87,6 +105,10 @@ class Broker:
             take_profit=trade.take_profit,
             stop_loss=trade.stop_loss,
             reason=reason,
+            entry_fee=trade.entry_fee,
+            exit_fee=exit_fee,
+            entry_fee_type=trade.entry_fee_type,
+            exit_fee_type=fee_type.lower(),
         )
         self._closed.append(closed)
         return closed
@@ -101,6 +123,8 @@ class Trade:
     entry_time: pd.Timestamp
     take_profit: float | None = None
     stop_loss: float | None = None
+    entry_fee: float = 0.0
+    entry_fee_type: str = "taker"
 
 
 @dataclass
@@ -115,10 +139,18 @@ class ClosedTrade:
     take_profit: float | None
     stop_loss: float | None
     reason: str
+    entry_fee: float
+    exit_fee: float
+    entry_fee_type: str
+    exit_fee_type: str
 
     @property
     def pnl(self) -> float:
-        return (self.exit_price - self.entry_price) * self.direction * self.size
+        return (self.exit_price - self.entry_price) * self.direction * self.size - self.total_fees
+
+    @property
+    def total_fees(self) -> float:
+        return self.entry_fee + self.exit_fee
 
 
 class Strategy(Protocol):

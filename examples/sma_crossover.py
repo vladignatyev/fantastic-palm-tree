@@ -91,6 +91,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run SciPy-based parameter optimization to maximize Sharpe ratio before the final backtest.",
     )
+    parser.add_argument(
+        "--maker-fee",
+        type=float,
+        default=0.0,
+        help="Maker fee rate as a decimal (e.g., 0.0002 for 2 bps).",
+    )
+    parser.add_argument(
+        "--taker-fee",
+        type=float,
+        default=0.0,
+        help="Taker fee rate as a decimal (e.g., 0.0004 for 4 bps).",
+    )
     return parser.parse_args()
 
 
@@ -122,6 +134,8 @@ def main() -> None:
                 params["position_size"],
                 params["atr_multiplier"],
             ],
+            maker_fee=args.maker_fee,
+            taker_fee=args.taker_fee,
         )
         params = strategy.parameters.to_dict(best_values)
         result = best_result
@@ -129,7 +143,13 @@ def main() -> None:
         for name, value in params.items():
             print(f"  {name}: {value:.4f}")
     else:
-        result = run_backtest(data, strategy, params)
+        result = run_backtest(
+            data,
+            strategy,
+            params,
+            maker_fee=args.maker_fee,
+            taker_fee=args.taker_fee,
+        )
 
     print("Backtest metrics:")
     for key, value in result.metrics.items():

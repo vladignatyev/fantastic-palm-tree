@@ -75,9 +75,19 @@ print("Latest RSI:", current_rsi)
 
 # Run a backtest with your own strategy implementation
 my_strategy_instance = MyStrategy()
-result = run_backtest(data, my_strategy_instance, params={"example_param": 1.0})
+result = run_backtest(
+    data,
+    my_strategy_instance,
+    params={"example_param": 1.0},
+    maker_fee=0.0002,
+    taker_fee=0.0004,
+)
 print(result.metrics)
 ```
+
+Pass `maker_fee` and `taker_fee` as decimal rates (e.g., 0.0004 = 4 basis points) to account for venue trading costs. These
+fees are applied to entries and exits when computing mark-to-market equity, trade-level PnL, and all derived performance
+metrics.
 
 When working outside of `uv`, install dependencies manually:
 
@@ -137,7 +147,9 @@ uv run python examples/sma_crossover.py data/btcusdt-1h.tsv --fast 15 --slow 60 
 ```
 
 The script prints a metrics summary to the console and, unless `--no-plot` is passed, displays the equity curve and price
-action using the visualization helpers. You can modify the argument values to test different parameter combinations.
+action using the visualization helpers. You can modify the argument values to test different parameter combinations. If your
+market charges trading fees, specify them with `--maker-fee` and `--taker-fee` (decimal rates). The backtester deducts these
+costs on every fill and exposes the aggregate value through the `total_fees` metric.
 
 To automatically search for parameters that maximize the Sharpe ratio, enable the `--optimize` flag. The example below starts
 the optimization from the provided CLI arguments, runs SciPy's bounded minimizer under the hood, prints the best Sharpe-driven
@@ -171,10 +183,11 @@ Backtest metrics:
   pnl: 0.102
   max_drawdown: -0.034
   max_profit: 0.137
+  total_fees: 0.018
 ```
 
 Your output will vary depending on the dataset, but the structure remains the same: the script announces the optimization run,
 prints the tuned parameters returned by `optimize_strategy`, and finishes with the full backtest metrics computed from the
-best Sharpe ratio found. If you omit `--no-plot`, the optimized run is plotted automatically so you can visually inspect the
-equity curve and trade markers produced by the tuned configuration.
+best Sharpe ratio found (including total trading fees paid). If you omit `--no-plot`, the optimized run is plotted
+automatically so you can visually inspect the equity curve and trade markers produced by the tuned configuration.
 

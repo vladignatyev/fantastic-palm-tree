@@ -44,6 +44,7 @@ def _evaluate_metrics(equity: pd.Series, trades: list[ClosedTrade]) -> dict[str,
         "min_equity": min_equity,
         "max_equity": max_equity,
         "closed_trades": len(trades),
+        "total_fees": sum(trade.total_fees for trade in trades),
     }
 
 
@@ -56,20 +57,44 @@ def _simulate_candle(broker: Broker, candle: pd.Series, timestamp: pd.Timestamp)
     for trade in broker.open_positions:
         if trade.take_profit is not None:
             if trade.direction == 1 and high >= trade.take_profit:
-                broker.close_trade(trade.trade_id, trade.take_profit, timestamp, reason="take_profit")
+                broker.close_trade(
+                    trade.trade_id,
+                    trade.take_profit,
+                    timestamp,
+                    reason="take_profit",
+                    fee_type="maker",
+                )
                 to_close.append(trade.trade_id)
                 continue
             if trade.direction == -1 and low <= trade.take_profit:
-                broker.close_trade(trade.trade_id, trade.take_profit, timestamp, reason="take_profit")
+                broker.close_trade(
+                    trade.trade_id,
+                    trade.take_profit,
+                    timestamp,
+                    reason="take_profit",
+                    fee_type="maker",
+                )
                 to_close.append(trade.trade_id)
                 continue
         if trade.stop_loss is not None:
             if trade.direction == 1 and low <= trade.stop_loss:
-                broker.close_trade(trade.trade_id, trade.stop_loss, timestamp, reason="stop_loss")
+                broker.close_trade(
+                    trade.trade_id,
+                    trade.stop_loss,
+                    timestamp,
+                    reason="stop_loss",
+                    fee_type="taker",
+                )
                 to_close.append(trade.trade_id)
                 continue
             if trade.direction == -1 and high >= trade.stop_loss:
-                broker.close_trade(trade.trade_id, trade.stop_loss, timestamp, reason="stop_loss")
+                broker.close_trade(
+                    trade.trade_id,
+                    trade.stop_loss,
+                    timestamp,
+                    reason="stop_loss",
+                    fee_type="taker",
+                )
                 to_close.append(trade.trade_id)
                 continue
 
@@ -83,10 +108,12 @@ def run_backtest(
     strategy: Strategy,
     params: dict[str, float] | None = None,
     initial_equity: float = 10_000.0,
+    maker_fee: float = 0.0,
+    taker_fee: float = 0.0,
 ) -> BacktestResult:
     """Run a backtest over the provided OHLCV data."""
 
-    broker = Broker()
+    broker = Broker(maker_fee=maker_fee, taker_fee=taker_fee)
     params = params or {name: np.mean(bounds) for name, bounds in zip(strategy.parameters.names, strategy.parameters.bounds)}
     equity = [initial_equity]
     index = []
@@ -100,7 +127,7 @@ def run_backtest(
 
         # Update equity based on open positions using close price mark-to-market
         mtm = sum(
-            (candle["close"] - trade.entry_price) * trade.direction * trade.size
+            (candle["close"] - trade.entry_price) * trade.direction * trade.size - trade.entry_fee
             for trade in broker.open_positions
         )
         closed_profit = sum(trade.pnl for trade in broker.closed_positions)
@@ -117,6 +144,8 @@ def optimize_strategy(
     strategy: Strategy,
     objective: Callable[[BacktestResult], float],
     initial_guess: Iterable[float] | None = None,
+    maker_fee: float = 0.0,
+    taker_fee: float = 0.0,
 ) -> tuple[np.ndarray, BacktestResult]:
     """Optimize strategy parameters using SciPy's ``minimize``."""
 
@@ -129,12 +158,24 @@ def optimize_strategy(
 
     def _objective(values: np.ndarray) -> float:
         params = strategy.parameters.to_dict(values)
-        result = run_backtest(data, strategy, params)
+        result = run_backtest(
+            data,
+            strategy,
+            params,
+            maker_fee=maker_fee,
+            taker_fee=taker_fee,
+        )
         return objective(result)
 
     result = minimize(_objective, guess, bounds=bounds)
     best_params = result.x
-    best_result = run_backtest(data, strategy, strategy.parameters.to_dict(best_params))
+    best_result = run_backtest(
+        data,
+        strategy,
+        strategy.parameters.to_dict(best_params),
+        maker_fee=maker_fee,
+        taker_fee=taker_fee,
+    )
     return best_params, best_result
 
 
