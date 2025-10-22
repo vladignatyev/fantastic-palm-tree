@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
@@ -17,9 +17,11 @@ from cryptobot.visualization import plot_backtest
 class SmaCrossoverStrategy:
     """Simple moving-average crossover strategy with ATR-based exits."""
 
-    parameters: StrategyParameters = StrategyParameters(
-        names=["fast_window", "slow_window", "position_size", "atr_multiplier"],
-        bounds=[(5, 60), (20, 200), (0.1, 5.0), (1.0, 5.0)],
+    parameters: StrategyParameters = field(
+        default_factory=lambda: StrategyParameters(
+            names=["fast_window", "slow_window", "position_size", "atr_multiplier"],
+            bounds=[(5, 60), (20, 200), (0.1, 5.0), (1.0, 5.0)],
+        )
     )
 
     def __call__(self, context: StrategyContext, broker: Broker, params: dict[str, float]) -> None:
