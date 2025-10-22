@@ -27,4 +27,4 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.uv]
-"default-groups" = ["plot"]
+"default-groups" = []
